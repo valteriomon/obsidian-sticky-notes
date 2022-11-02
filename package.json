@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "obsidian-sticky-note",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "This plugin allows you to either open a modal with a hotkey or attach just the content of a note to a panel.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
