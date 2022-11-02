@@ -1,8 +1,8 @@
 // Credits go to Liam's Periodic Notes Plugin: https://github.com/liamcain/obsidian-periodic-notes
 
-import { TAbstractFile, TFile, Vault, App } from "obsidian";
+import { TAbstractFile, TFile } from "obsidian";
 import { TextInputSuggest } from "./suggest";
-import { get_tfiles_from_folder } from "../utils/Utils";
+import { get_tfiles_from_folder } from "./Utils";
 
 export class FileSuggest extends TextInputSuggest<TFile> {
     constructor(

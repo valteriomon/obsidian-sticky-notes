@@ -7,10 +7,10 @@ import {
     Modal,
     Plugin,
     PluginSettingTab,
-    Setting
+    Setting,
 } from "obsidian";
 
-import { FileSuggest } from "./suggesters/FileSuggester";
+import { FileSuggest } from "./utils/FileSuggester";
 
 interface panel {
     enabled: boolean;
@@ -26,32 +26,33 @@ interface modal {
 }
 
 interface StickyNoteSettings {
-    panel: panel,
-    modal: modal
+    panel: panel;
+    modal: modal;
 }
 
-interface StringDict { [key: string]: string; }
+interface StringDict {
+    [key: string]: string;
+}
 
 const DEFAULT_SETTINGS: StickyNoteSettings = {
     panel: {
         enabled: true,
         useFile: false,
         path: "",
-        content: "# This is a panel static note!"
+        content: "# This is a panel static note!",
     },
     modal: {
         useFile: false,
         path: "",
-        content: "# This is a modal static note!"
-    }
+        content: "# This is a modal static note!",
+    },
 };
 
 const StickyNoteViewType = "sticky-note";
 
 class StickyNoteView extends ItemView {
     private readonly plugin: StickyNote;
-    private content: string;
-    
+
     constructor(leaf: WorkspaceLeaf, plugin: StickyNote) {
         super(leaf);
         this.plugin = plugin;
@@ -75,21 +76,14 @@ class StickyNoteView extends ItemView {
 
     public load(): void {
         super.load();
-        this.registerEvent(
-            this.app.vault.on("modify", this.update)
-        );
+        this.registerEvent(this.app.vault.on("modify", this.update));
     }
 
     public readonly redraw = async (): Promise<void> => {
         const rootEl = createDiv();
         const content = await this.plugin.getPanelContent();
 
-        MarkdownRenderer.renderMarkdown(
-            content,
-            rootEl,
-            "",
-            null as any
-        );
+        MarkdownRenderer.renderMarkdown(content, rootEl, "", null);
 
         const contentEl = this.containerEl.children[1];
         contentEl.empty();
@@ -97,17 +91,15 @@ class StickyNoteView extends ItemView {
     };
 
     private readonly update = async (file: TAbstractFile): Promise<void> => {
-        if(
+        if (
             this.plugin.settings.panel.useFile &&
             this.plugin.settings.panel.path == file?.path
         ) {
-           setTimeout(async () => {
-                this.content = await this.plugin.getPanelContent();
+            setTimeout(async () => {
                 this.redraw();
-           }, 1000)
+            }, 1000);
         }
     };
-
 }
 
 export default class StickyNote extends Plugin {
@@ -120,20 +112,8 @@ export default class StickyNote extends Plugin {
 
         this.registerView(
             StickyNoteViewType,
-            (leaf) => (
-                this.view = new StickyNoteView(
-                    leaf,
-                    this
-            ))
+            (leaf) => new StickyNoteView(leaf, this)
         );
-
-        // (this.app.workspace as any).registerHoverLinkSource(
-        //     StickyNoteViewType,
-        //     {
-        //         display: "Sticky Note",
-        //         defaultMod: true,
-        //     }
-        // );
 
         if (this.app.workspace.layoutReady) {
             this.setView();
@@ -144,20 +124,21 @@ export default class StickyNote extends Plugin {
         this.addCommand({
             id: "open-sticky-note",
             name: "Show modal",
-            callback: async () => this.showModal()
+            callback: async () => this.showModal(),
         });
 
         this.addCommand({
-            id: 'sticky-note-open',
-            name: 'Open panel',
+            id: "sticky-note-open",
+            name: "Open panel",
             callback: async () => {
-                let [leaf] = this.app.workspace.getLeavesOfType(StickyNoteViewType);
+                let [leaf] =
+                    this.app.workspace.getLeavesOfType(StickyNoteViewType);
                 if (!leaf) {
                     leaf = this.app.workspace.getLeftLeaf(false);
                     await leaf.setViewState({ type: StickyNoteViewType });
                 }
                 this.app.workspace.revealLeaf(leaf);
-            }
+            },
         });
 
         // This adds a settings tab so the user can configure various aspects of the plugin
@@ -173,7 +154,10 @@ export default class StickyNote extends Plugin {
         const { vault } = this.app;
 
         const fileContents: string[] = await Promise.all(
-            vault.getMarkdownFiles().filter((file) => filePath == file.path).map((file) => vault.cachedRead(file))
+            vault
+                .getMarkdownFiles()
+                .filter((file) => filePath == file.path)
+                .map((file) => vault.cachedRead(file))
         );
 
         return fileContents.length == 1 ? fileContents[0] : "";
@@ -197,7 +181,7 @@ export default class StickyNote extends Plugin {
 
     async getContent(note: panel | modal): Promise<string> {
         let content;
-        if(note.useFile) {
+        if (note.useFile) {
             content = await this.readFile(note.path);
         } else {
             content = note.content;
@@ -209,10 +193,11 @@ export default class StickyNote extends Plugin {
         return await this.getContent(this.settings.panel);
     }
 
-    async showModal(key: string = "", preventDef: boolean = false): Promise<void> {
+    async showModal(): Promise<void> {
         const content = await this.getContent(this.settings.modal);
 
-        this.stickyNote = this.stickyNote || new StickyNoteModal(this.app, content);
+        this.stickyNote =
+            this.stickyNote || new StickyNoteModal(this.app, content);
         this.stickyNote.open();
 
         this.registerDomEvent(document, "keyup", (evt: KeyboardEvent) => {
@@ -222,7 +207,7 @@ export default class StickyNote extends Plugin {
             }
         });
     }
-  
+
     readonly setView = async (): Promise<void> => {
         let [leaf] = this.app.workspace.getLeavesOfType(StickyNoteViewType);
 
@@ -234,6 +219,14 @@ export default class StickyNote extends Plugin {
             });
         } else if (!this.settings.panel.enabled && leaf) {
             leaf.detach();
+        }
+    };
+
+    readonly redrawView = (): void => {
+        const [leaf] = this.app.workspace.getLeavesOfType(StickyNoteViewType);
+        const view = leaf.view;
+        if (view instanceof StickyNoteView) {
+            view.redraw();
         }
     };
 }
@@ -248,8 +241,13 @@ class StickyNoteModal extends Modal {
 
     onOpen() {
         const { contentEl } = this;
-        contentEl.parentElement?.addClass("sticky-note-modal")
-        MarkdownRenderer.renderMarkdown(this.modalContent, contentEl, "", null as any);
+        contentEl.parentElement?.addClass("sticky-note-modal");
+        MarkdownRenderer.renderMarkdown(
+            this.modalContent,
+            contentEl,
+            "",
+            null
+        );
     }
 
     onClose() {
@@ -266,7 +264,7 @@ class StickyNoteSettingTab extends PluginSettingTab {
         enablePanel: "Enable panel note",
         noteTypeToggle: "Use file content instead of a static note",
         staticNote: "Static note",
-        noteFile: "Note file"
+        noteFile: "Note file",
     };
 
     constructor(app: App, plugin: StickyNote) {
@@ -279,50 +277,48 @@ class StickyNoteSettingTab extends PluginSettingTab {
 
         containerEl.empty();
 
-        containerEl.createEl("h1", { text:  this.hardcodedTexts.panelHeader});
+        containerEl.createEl("h1", { text: this.hardcodedTexts.panelHeader });
 
         new Setting(this.containerEl)
             .setName(this.hardcodedTexts.enablePanel)
             .addToggle((toggle) => {
                 toggle
-                .setValue(this.plugin.settings.panel.enabled)
-                .onChange((enable) => {
-                    this.plugin.settings.panel.enabled = enable;
-                    this.plugin.saveSettings();
-                    this.plugin.setView();
-                });
+                    .setValue(this.plugin.settings.panel.enabled)
+                    .onChange((enable) => {
+                        this.plugin.settings.panel.enabled = enable;
+                        this.plugin.saveSettings();
+                        this.plugin.setView();
+                        this.display();
+                    });
             });
 
-        if ( this.plugin.settings.panel.enabled ) {
+        if (this.plugin.settings.panel.enabled) {
             new Setting(this.containerEl)
-            .setName(this.hardcodedTexts.noteTypeToggle)
-            .addToggle((toggle) => {
-                toggle
-                .setValue(this.plugin.settings.panel.useFile)
-                .onChange((useFile) => {
-                    this.plugin.settings.panel.useFile = useFile;
-                    this.plugin.saveSettings();
-                    this.plugin.view.redraw();
-                    this.display();
+                .setName(this.hardcodedTexts.noteTypeToggle)
+                .addToggle((toggle) => {
+                    toggle
+                        .setValue(this.plugin.settings.panel.useFile)
+                        .onChange((useFile) => {
+                            this.plugin.settings.panel.useFile = useFile;
+                            this.plugin.saveSettings();
+                            this.plugin.redrawView();
+                            this.display();
+                        });
                 });
-            });
 
             if (this.plugin.settings.panel.useFile) {
                 new Setting(this.containerEl)
                     .setName(this.hardcodedTexts.noteFile)
                     .addSearch((cb) => {
                         const rootFolder = app.vault.getRoot().path;
-                        new FileSuggest(
-                            cb.inputEl,
-                            rootFolder
+                        new FileSuggest(cb.inputEl, rootFolder);
+                        cb.setValue(this.plugin.settings.panel.path).onChange(
+                            (path) => {
+                                this.plugin.settings.panel.path = path;
+                                this.plugin.saveSettings();
+                                this.plugin.redrawView();
+                            }
                         );
-                        cb
-                        .setValue(this.plugin.settings.panel.path)
-                        .onChange((path) => {
-                            this.plugin.settings.panel.path = path;
-                            this.plugin.saveSettings();
-                            this.plugin.view.redraw();
-                        });
                     });
             } else {
                 new Setting(containerEl)
@@ -330,11 +326,11 @@ class StickyNoteSettingTab extends PluginSettingTab {
                     .setClass("static-sticky-note")
                     .addTextArea((text) =>
                         text
-                        .setValue(this.plugin.settings.panel.content)
-                        .onChange((content) => {
-                            this.plugin.settings.panel.content = content;
-                            this.plugin.saveSettings();
-                        })
+                            .setValue(this.plugin.settings.panel.content)
+                            .onChange((content) => {
+                                this.plugin.settings.panel.content = content;
+                                this.plugin.saveSettings();
+                            })
                     );
             }
         }
@@ -345,12 +341,12 @@ class StickyNoteSettingTab extends PluginSettingTab {
             .setName(this.hardcodedTexts.noteTypeToggle)
             .addToggle((toggle) => {
                 toggle
-                .setValue(this.plugin.settings.modal.useFile)
-                .onChange((useFile) => {
-                    this.plugin.settings.modal.useFile = useFile;
-                    this.plugin.saveSettings();
-                    this.display();
-                });
+                    .setValue(this.plugin.settings.modal.useFile)
+                    .onChange((useFile) => {
+                        this.plugin.settings.modal.useFile = useFile;
+                        this.plugin.saveSettings();
+                        this.display();
+                    });
             });
 
         if (this.plugin.settings.modal.useFile) {
@@ -358,86 +354,26 @@ class StickyNoteSettingTab extends PluginSettingTab {
                 .setName(this.hardcodedTexts.noteFile)
                 .addSearch((cb) => {
                     const rootFolder = app.vault.getRoot().path;
-                    new FileSuggest(
-                        cb.inputEl,
-                        rootFolder
+                    new FileSuggest(cb.inputEl, rootFolder);
+                    cb.setValue(this.plugin.settings.modal.path).onChange(
+                        (path) => {
+                            this.plugin.settings.modal.path = path;
+                            this.plugin.saveSettings();
+                        }
                     );
-                    cb
-                    .setValue(this.plugin.settings.modal.path)
-                    .onChange((path) => {
-                        this.plugin.settings.modal.path = path;
-                        this.plugin.saveSettings();
-                    });
-                });            
+                });
         } else {
             new Setting(containerEl)
-            	.setName(this.hardcodedTexts.staticNote)
-            	.setClass("static-sticky-note")
-            	.addTextArea((text) =>
-            		text
-            		.setValue(this.plugin.settings.modal.content)
-            		.onChange(async (content) => {
-            			this.plugin.settings.modal.content = content;
-            			await this.plugin.saveSettings();
-            		})
-            	);
+                .setName(this.hardcodedTexts.staticNote)
+                .setClass("static-sticky-note")
+                .addTextArea((text) =>
+                    text
+                        .setValue(this.plugin.settings.modal.content)
+                        .onChange(async (content) => {
+                            this.plugin.settings.modal.content = content;
+                            await this.plugin.saveSettings();
+                        })
+                );
         }
     }
 }
-
-
-// export class TemplaterError extends Error {
-//     constructor(msg: string, public console_msg?: string) {
-//         super(msg);
-//         this.name = this.constructor.name;
-//         Error.captureStackTrace(this, this.constructor);
-//     }
-// }
-
-// export async function errorWrapper<T>(
-//     fn: () => Promise<T>,
-//     msg: string
-// ): Promise<T> {
-//     try {
-//         return await fn();
-//     } catch (e) {
-//         if (!(e instanceof TemplaterError)) {
-//             log_error(new TemplaterError(msg, e.message));
-//         } else {
-//             log_error(e);
-//         }
-//         return null as T;
-//     }
-// }
-
-// export function errorWrapperSync<T>(fn: () => T, msg: string): T {
-//     try {
-//         return fn();
-//     } catch (e) {
-//         log_error(new TemplaterError(msg, e.message));
-//         return null as T;
-//     }
-// }
-
-// if (
-//     new_folder &&
-//     this.plugin.settings.folder_templates.some(
-//         (e) => e.folder == new_folder
-//     )
-// ) {
-//     log_error(
-//         new TemplaterError(
-//             "This folder already has a template associated with it"
-//         )
-//     );
-//     return;
-// }
-
-// const user_script_functions: Map<string, () => unknown> = new Map();
-// const files = errorWrapperSync(
-//     () =>
-//         get_tfiles_from_folder(
-//             this.plugin.settings.user_scripts_folder
-//         ),
-//     `Couldn't find user script folder "${this.plugin.settings.user_scripts_folder}"`
-// );
