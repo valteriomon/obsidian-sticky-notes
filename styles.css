@@ -1,8 +1,18 @@
-/*
+.static-sticky-note > * > textarea{
+    width:40em;
+    height: 100%;
+    resize: none;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.static-sticky-note > * {
+    height: 100%;
+    width: 60em;
+}
 
-If your plugin does not need CSS, delete this file.
+.static-sticky-note {
+    height: 50%;
+}
 
-*/
+.sticky-note-modal > .modal-close-button {
+    display: none;
+}
